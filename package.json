@@ -1,0 +1,26 @@
+{
+  "name": "kerr-black-hole",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Real-time ray tracer for a spinning (Kerr) black hole with a relativistic accretion disk, built on WebGPU.",
+  "type": "module",
+  "license": "MIT",
+  "author": "Rodrigo Ferro",
+  "repository": "github:rodferro/kerr-black-hole",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "test": "node --test test/*.test.ts",
+    "typecheck": "tsc"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "@webgpu/types": "^0.1.60",
+    "typescript": "^5.8.3",
+    "vite": "^6.3.5"
+  }
+}

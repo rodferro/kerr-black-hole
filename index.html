@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Kerr Black Hole</title>
+    <meta
+      name="description"
+      content="Real-time ray tracer for a spinning (Kerr) black hole with a relativistic accretion disk, running on WebGPU."
+    />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='14' fill='%23f6a04d'/><circle cx='16' cy='16' r='8' fill='%23000'/></svg>" />
+  </head>
+  <body>
+    <canvas id="view" aria-label="Ray-traced view of a spinning black hole. Drag to orbit, scroll to zoom."></canvas>
+
+    <header class="title">
+      <h1>Kerr black hole</h1>
+      <p>Drag to orbit · scroll or pinch to zoom</p>
+    </header>
+
+    <aside id="panel" class="panel">
+      <button id="panel-toggle" class="panel-toggle" aria-expanded="true" aria-controls="panel-body">Controls</button>
+      <div id="panel-body" class="panel-body">
+        <label class="row">
+          <span>Spin <em>a/M</em> <output id="spin-value">0.900</output></span>
+          <input id="spin" type="range" min="-0.998" max="0.998" step="0.001" value="0.9" />
+        </label>
+        <label class="row">
+          <span>Disk temperature <output id="temp-value">6500 K</output></span>
+          <input id="temp" type="range" min="2500" max="15000" step="100" value="6500" />
+        </label>
+        <label class="row">
+          <span>Exposure</span>
+          <input id="exposure" type="range" min="0.2" max="4" step="0.05" value="1.2" />
+        </label>
+
+        <div class="checks">
+          <label><input id="disk" type="checkbox" checked /> Accretion disk</label>
+          <label><input id="shift" type="checkbox" checked /> Doppler &amp; gravitational shift</label>
+          <label><input id="grid" type="checkbox" /> Grid sky (shows lensing)</label>
+          <label><input id="animate" type="checkbox" checked /> Animate disk</label>
+        </div>
+
+        <label class="row">
+          <span>Quality</span>
+          <select id="quality">
+            <option value="low">Low</option>
+            <option value="medium" selected>Medium</option>
+            <option value="high">High</option>
+          </select>
+        </label>
+
+        <pre id="stats" class="stats"></pre>
+        <a class="source" href="https://github.com/rodferro/kerr-black-hole">Source on GitHub</a>
+      </div>
+    </aside>
+
+    <div id="error" class="error" hidden>
+      <h2></h2>
+      <p></p>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
