@@ -139,20 +139,32 @@ export function rk4Step(s: RayState, a: number, L: number, h: number): RayState 
 /**
  * Adaptive step size: a fixed fraction `scale` of the distance to the horizon
  * and of one radian of angular motion. Large far away, small near the hole.
+ *
+ * The φ term is |dφ|, not |dφ|·sin θ. A ray passing close to the spin axis
+ * turns around in θ within a tiny angle of the pole while φ sweeps through
+ * about π; weighting by sin θ hides that sweep, so RK4 overshoots the turning
+ * point and the ray goes wild. Unweighted, the turnaround takes about π/scale
+ * steps.
  */
 export function stepSize(s: RayState, a: number, L: number, rPlus: number, scale: number): number {
   const d = derivatives(s, a, L);
-  const sin = Math.abs(Math.sin(s.theta));
   const rate =
-    Math.abs(d.dr) / Math.max(s.r - rPlus, 1e-6) + Math.abs(d.dtheta) + Math.abs(d.dphi) * sin;
+    Math.abs(d.dr) / Math.max(s.r - rPlus, 1e-6) + Math.abs(d.dtheta) + Math.abs(d.dphi);
   return scale / (rate + 1e-9);
 }
 
 /**
  * Initial photon momentum for a camera at rest in the zero-angular-momentum
- * (ZAMO) frame at (r, θ). n = (n_r, n_θ, n_φ) is a unit direction in that
- * frame. Returns the momenta normalized to E = 1, plus the factor eCam, the
- * photon energy the camera measures (used for redshift).
+ * (ZAMO) frame at (r, θ). n = (n_r, n_θ, n_φ) is the unit direction the photon
+ * travels in, measured in that frame. Returns the momenta normalized to E = 1,
+ * plus the factor eCam, the photon energy the camera measures (used for
+ * redshift).
+ *
+ * For rendering, the photon seen when looking in direction `look` travels
+ * along n = −look, and is then traced backward in time (traceRay with
+ * backward: true). Tracing forward along `look` instead would follow a photon
+ * the camera emits, which in Kerr is not the same path: frame dragging makes
+ * the geodesics depend on the direction of travel.
  * Follows James et al. 2015, "Gravitational lensing by spinning black holes
  * in astrophysics, and in the movie Interstellar", Appendix A.
  */
@@ -183,39 +195,44 @@ export function cameraRay(
 /**
  * Redshift factor g = E_observed / E_emitted for light from a Keplerian
  * disk element at radius r, reaching a camera that measures energy eCam for
- * an E = 1 photon. L is the traced ray's angular momentum; the physical photon
- * travels the opposite way, hence the + sign.
+ * an E = 1 photon with axial angular momentum L. The gas has 4-velocity
+ * u = u^t (1, 0, 0, Ω), so it measures E_emitted = −p·u = u^t (1 − Ω L).
  */
 export function diskRedshift(r: number, a: number, L: number, eCam: number): number {
   const r32 = r ** 1.5;
   const omega = 1 / (r32 + a);
   const ut = (r32 + a) / (r ** 0.75 * Math.sqrt(r32 - 3 * Math.sqrt(r) + 2 * a));
-  return eCam / (ut * (1 + omega * L));
+  return eCam / (ut * (1 - omega * L));
 }
 
 export type RayOutcome = 'captured' | 'escaped' | 'unfinished';
 
 /**
- * Integrate a ray until it falls into the horizon or escapes past rEscape.
+ * Integrate a ray until it reaches the horizon or gets past rEscape moving
+ * outward. With backward: true the integration runs backward in time, which
+ * is how the renderer follows light from the camera to its source; then
+ * 'captured' means the light would have to come out of the horizon (the
+ * shadow) and 'escaped' that it came from the sky.
  * Used by the tests; the shader has its own copy of this loop.
  */
 export function traceRay(
   start: RayState,
   a: number,
   L: number,
-  opts: { rEscape?: number; maxSteps?: number; scale?: number } = {},
+  opts: { rEscape?: number; maxSteps?: number; scale?: number; backward?: boolean } = {},
 ): { outcome: RayOutcome; state: RayState; steps: number; maxHamiltonianDrift: number } {
   const rPlus = horizonRadius(a);
   const rEscape = opts.rEscape ?? 1000;
   const maxSteps = opts.maxSteps ?? 20000;
   const scale = opts.scale ?? 0.02;
+  const dir = opts.backward ? -1 : 1;
   let s = start;
   let drift = 0;
   for (let i = 0; i < maxSteps; i++) {
     if (s.r < rPlus * 1.01) return { outcome: 'captured', state: s, steps: i, maxHamiltonianDrift: drift };
     const d = derivatives(s, a, L);
-    if (s.r > rEscape && d.dr > 0) return { outcome: 'escaped', state: s, steps: i, maxHamiltonianDrift: drift };
-    s = rk4Step(s, a, L, stepSize(s, a, L, rPlus, scale));
+    if (s.r > rEscape && dir * d.dr > 0) return { outcome: 'escaped', state: s, steps: i, maxHamiltonianDrift: drift };
+    s = rk4Step(s, a, L, dir * stepSize(s, a, L, rPlus, scale));
     drift = Math.max(drift, Math.abs(hamiltonian(s, a, L)));
   }
   return { outcome: 'unfinished', state: s, steps: maxSteps, maxHamiltonianDrift: drift };
