@@ -8,6 +8,8 @@ asymmetry all come straight out of the physics rather than being painted on.
 **[Open the live demo →](https://rodferro.github.io/kerr-black-hole/)**
 (needs a WebGPU browser: recent Chrome, Edge or Safari)
 
+![A spinning black hole with spin a = 0.9, the camera tilting between 84° and 74° from the spin axis while the accretion disk turns](docs/kerr.gif)
+
 ## What you're looking at
 
 - **The shadow.** Light that gets too close falls in. With spin, the shadow is
@@ -31,6 +33,9 @@ lensing distortion easy to follow.
 
 ## How it works
 
+The full derivation, with the equations as they appear in the code, is in
+**[docs/geodesics.md](docs/geodesics.md)**. In short:
+
 Units are geometrized: G = c = M = 1, so distances are in units of the hole's mass
 (for Sagittarius A*, 1 M ≈ 6.4 million km).
 
@@ -38,12 +43,15 @@ Units are geometrized: G = c = M = 1, so distances are in units of the hole's ma
    radius r and angle θ from the spin axis. Each pixel's viewing direction becomes an
    initial photon momentum using the frame transformation from James et al. (2015), the
    paper behind the black hole in *Interstellar*.
-2. **Geodesics.** Photons are traced backward with the Hamiltonian form of the null
-   geodesic equations in Boyer–Lindquist coordinates. Energy and axial angular
+2. **Geodesics.** Each pixel's incoming photon is traced backward in time with the
+   Hamiltonian form of the null geodesic equations in Boyer–Lindquist coordinates.
+   (Launching it outward from the camera instead would give a mirrored shadow: around a
+   spinning hole, light doesn't retrace its path when reversed.) Energy and axial angular
    momentum are conserved exactly by construction; the remaining state
    (r, θ, φ, p_r, p_θ) is integrated with classic 4th-order Runge–Kutta.
 3. **Adaptive steps.** The step size scales with the distance to the horizon and the
-   angular speed, so rays take big steps far away and small ones near the hole.
+   angular speed, so rays take big steps far away and small ones near the hole and
+   where they swing past the spin axis.
 4. **Disk.** A geometrically thin disk with a Novikov–Thorne-shaped temperature
    profile, from the ISCO outward. Each crossing of the equatorial plane adds emission
    and attenuates the ray, so you can see lensed images through thinner gas.
@@ -66,7 +74,9 @@ same equations are implemented in TypeScript in
 - prograde and retrograde capture thresholds for a = 0.9, matching Bardeen's photon
   orbit formulas, which pins down the lopsided shadow;
 - camera rays starting exactly on the light cone (H = 0) for any direction and spin;
-- the Hamiltonian staying near zero along integrated rays;
+- the shadow's flat side landing on the approaching side of the disk;
+- the Hamiltonian staying near zero along integrated rays, including rays that pass
+  close to the spin axis;
 - the sign of the disk redshift on the approaching and receding sides.
 
 ## Running locally

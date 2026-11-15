@@ -15,7 +15,8 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test": "node --test test/*.test.ts",
-    "typecheck": "tsc"
+    "typecheck": "tsc",
+    "figure": "node scripts/ray-figure.ts > docs/ray-paths.svg"
   },
   "devDependencies": {
     "@types/node": "^22.15.0",

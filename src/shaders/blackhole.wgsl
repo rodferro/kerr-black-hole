@@ -235,7 +235,8 @@ fn diskEmission(r: f32, ph: f32, a: f32, L: f32, eCam: f32) -> vec4<f32> {
     let r32 = pow(r, 1.5);
     let omega = 1.0 / (r32 + a);
     let ut = (r32 + a) / (pow(r, 0.75) * sqrt(max(r32 - 3.0 * sqrt(r) + 2.0 * a, 1e-6)));
-    g = eCam / (ut * (1.0 + omega * L));
+    // g = E_camera / E_gas, with E_gas = −p·u = u^t (1 − Ω L) for the incoming photon.
+    g = eCam / (ut * (1.0 - omega * L));
   }
 
   // Gas swirling at the local Keplerian rate, so the inner disk visibly outruns the outer.
@@ -265,9 +266,12 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
   let x = (2.0 * (f32(gid.x) + 0.5) / f32(size.x) - 1.0) * u.tanHalfFov * aspect;
   let y = (1.0 - 2.0 * (f32(gid.y) + 0.5) / f32(size.y)) * u.tanHalfFov;
   // Camera looks at the hole (−e_r); screen up is north (−e_θ), screen right is +e_φ.
-  let n = normalize(vec3<f32>(-1.0, -y, x));
+  // The photon seen in look direction `look` travels the opposite way, n = −look.
+  let look = normalize(vec3<f32>(-1.0, -y, x));
+  let n = -look;
 
-  // Initial momenta for a zero-angular-momentum observer (James et al. 2015, App. A).
+  // Momenta of that incoming photon, for a zero-angular-momentum observer
+  // (James et al. 2015, App. A), normalized to energy at infinity E = 1.
   let r0 = u.camR;
   let th0 = u.camTheta;
   let c0 = cos(th0);
@@ -291,25 +295,30 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
   var color = vec3<f32>(0.0);
   var transmittance = 1.0;
 
+  // Integrate backward in time (negative steps): from the camera to where the light came from.
   for (var i = 0u; i < u.maxSteps; i++) {
     if (s.r < rStop) {
-      break; // fell through the horizon
+      break; // came out of the horizon: nothing to see
     }
     let d = deriv(s, a, L);
-    if (s.r > rEscape && d.r > 0.0) {
+    if (s.r > rEscape && d.r < 0.0) {
+      // Far out and, going back in time, still receding: the light came from the sky,
+      // from the direction opposite to its velocity.
       let sn = sin(s.th);
       let cs = cos(s.th);
       let eR = vec3<f32>(sn * cos(s.ph), sn * sin(s.ph), cs);
       let eTh = vec3<f32>(cs * cos(s.ph), cs * sin(s.ph), -sn);
       let ePh = vec3<f32>(-sin(s.ph), cos(s.ph), 0.0);
-      let dir = normalize(d.r * eR + s.r * d.th * eTh + s.r * sn * d.ph * ePh);
+      let dir = -normalize(d.r * eR + s.r * d.th * eTh + s.r * sn * d.ph * ePh);
       color += transmittance * sky(dir);
       break;
     }
 
-    let rate = abs(d.r) / max(s.r - u.rPlus, 1e-4) + abs(d.th) + abs(d.ph) * abs(sin(s.th));
+    // |dφ| is not weighted by sin θ: near the spin axis φ sweeps fast while θ
+    // turns around, and that turnaround needs small steps (see docs/geodesics.md).
+    let rate = abs(d.r) / max(s.r - u.rPlus, 1e-4) + abs(d.th) + abs(d.ph);
     let h = u.stepScale / (rate + 1e-6);
-    let next = rk4(s, d, a, L, h);
+    let next = rk4(s, d, a, L, -h);
 
     if (diskOn) {
       let cA = cos(s.th);
